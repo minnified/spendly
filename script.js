@@ -12,6 +12,63 @@ let expenseFilter = false;
 const formatCurrency = amount => '₹' + Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatCompact = amount => '₹' + Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 const list = document.querySelector('#transaction-list');
+const nameModal = document.querySelector('#name-modal');
+const nameInput = document.querySelector('#user-name-input');
+const nameError = document.querySelector('#name-error');
+let activeName = (localStorage.getItem('spendly-user-name') || '').trim();
+
+function displayName(name) {
+  activeName = name;
+  localStorage.setItem('spendly-user-name', name);
+  document.querySelector('#greeting-name').textContent = name;
+  document.querySelector('#profile-name').textContent = name;
+  const initials = name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+  document.querySelector('#profile-initials').textContent = initials;
+  document.querySelector('#top-initial').textContent = initials[0] || 'A';
+}
+
+if (activeName) {
+  displayName(activeName);
+} else {
+  nameModal.showModal();
+}
+
+document.querySelector('#name-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const name = nameInput.value.trim();
+  if (!name) {
+    nameError.textContent = 'Please enter a valid name to continue.';
+    nameInput.setCustomValidity('Please enter a valid name.');
+    nameInput.reportValidity();
+    nameInput.focus();
+    return;
+  }
+  nameInput.setCustomValidity('');
+  nameError.textContent = '';
+  displayName(name);
+  nameModal.close();
+});
+
+nameInput.addEventListener('input', () => {
+  nameInput.setCustomValidity('');
+  nameError.textContent = '';
+});
+
+document.querySelector('#edit-name').addEventListener('click', () => {
+  document.querySelector('#name-modal-title').textContent = 'Update your name';
+  document.querySelector('#name-form button[type="submit"]').innerHTML = 'Save name <span>→</span>';
+  document.querySelector('#close-name-modal').hidden = false;
+  nameInput.value = activeName;
+  nameError.textContent = '';
+  nameModal.showModal();
+  nameInput.focus();
+  nameInput.select();
+});
+
+document.querySelector('#close-name-modal').addEventListener('click', () => nameModal.close());
+nameModal.addEventListener('cancel', event => {
+  if (!activeName) event.preventDefault();
+});
 
 function renderTransactions() {
   const visible = transactions.filter(item => !expenseFilter || item.type === 'expense');
