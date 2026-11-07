@@ -32,7 +32,14 @@
       <header class="topbar">
         <div class="mobile-brand"><span class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 11.2C7 8.9 8.9 7 11.2 7h9.6A4.2 4.2 0 0 1 25 11.2v9.6a4.2 4.2 0 0 1-4.2 4.2h-9.6A4.2 4.2 0 0 1 7 20.8v-9.6Z"/><path d="M11 16.2h10M16 11.2v10"/></svg></span><span class="brand-name">spendly<span class="brand-dot">.</span></span></div>
         <div class="breadcrumb"><span>Pages</span><span class="crumb-slash">/</span><strong id="current-page">Overview</strong></div>
-        <div class="top-actions"><button class="icon-button search-button" aria-label="Search transactions"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4.2 4.2"/></svg></button><button class="icon-button notification-button" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg><i></i></button><div class="top-avatar" id="top-initial">A</div></div>
+        <div class="top-actions">
+          <div class="search-control" id="search-control">
+            <button class="icon-button search-button" id="search-button" type="button" aria-label="Open transaction search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4.2 4.2"/></svg></button>
+            <input class="search-input" id="transaction-search" type="search" placeholder="Search transactions..." aria-label="Search transactions" autocomplete="off">
+            <button class="search-clear" id="search-clear" type="button" aria-label="Clear search" hidden>×</button>
+          </div>
+          <button class="icon-button notification-button" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg><i></i></button><div class="top-avatar" id="top-initial">A</div>
+        </div>
       </header>
 
       <div class="page-wrap">

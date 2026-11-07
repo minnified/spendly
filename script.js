@@ -9,6 +9,7 @@ const initialTransactions = [
 let transactions = [...initialTransactions];
 let showAll = false;
 let transactionFilter = 'all';
+let searchQuery = '';
 const formatCurrency = amount => '₹' + Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatCompact = amount => '₹' + Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 const list = document.querySelector('#transaction-list');
@@ -81,7 +82,12 @@ nameModal.addEventListener('cancel', event => {
 });
 
 function renderTransactions() {
-  const visible = transactions.filter(item => transactionFilter === 'all' || item.type === transactionFilter);
+  const query = searchQuery.trim().toLowerCase();
+  const visible = transactions.filter(item => {
+    const matchesFilter = transactionFilter === 'all' || item.type === transactionFilter;
+    const matchesSearch = !query || item.title.toLowerCase().includes(query) || item.category.toLowerCase().includes(query);
+    return matchesFilter && matchesSearch;
+  });
   const shown = showAll ? visible : visible.slice(0, 6);
   list.innerHTML = shown.length ? shown.map(item => `
     <div class="transaction-row">
@@ -178,10 +184,41 @@ document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('cl
   item.classList.add('is-active');
   document.querySelector('#current-page').textContent = item.dataset.view === 'transactions' ? 'Transactions' : 'Overview';
 }));
-document.querySelector('.search-button').addEventListener('click', () => {
-  const query = window.prompt('Search transactions');
-  if (query === null) return;
-  const matched = transactions.filter(item => item.title.toLowerCase().includes(query.toLowerCase()) || item.category.toLowerCase().includes(query.toLowerCase()));
-  list.innerHTML = matched.length ? matched.map(item => `<div class="transaction-row"><div class="transaction-main"><span class="transaction-icon ${item.tint}">${item.icon}</span><div><div class="transaction-name">${escapeHTML(item.title)}</div><div class="transaction-sub">${item.type === 'income' ? 'Money in' : 'Money out'}</div></div></div><span class="category-chip">${escapeHTML(item.category)}</span><span class="transaction-date">${escapeHTML(item.date)}</span><span class="transaction-amount ${item.type}">${item.type === 'income' ? '+' : '−'}${formatCurrency(item.amount)}</span></div>`).join('') : '<div class="empty-state">No matching transactions.</div>';
+const searchControl = document.querySelector('#search-control');
+const searchButton = document.querySelector('#search-button');
+const searchInput = document.querySelector('#transaction-search');
+const searchClear = document.querySelector('#search-clear');
+
+searchButton.addEventListener('click', () => searchInput.focus());
+searchControl.addEventListener('mouseenter', () => searchControl.classList.remove('is-collapsed'));
+searchControl.addEventListener('mouseleave', () => searchControl.classList.remove('is-collapsed'));
+searchInput.addEventListener('blur', () => {
+  if (!searchInput.value.trim()) searchControl.classList.add('is-collapsed');
 });
-document.querySelector('.notification-button').addEventListener('click', () => window.alert('You’re all caught up!'));
+searchInput.addEventListener('input', () => {
+  searchQuery = searchInput.value;
+  searchControl.classList.toggle('has-query', Boolean(searchQuery.trim()));
+  searchClear.hidden = !searchQuery;
+  showAll = false;
+  renderTransactions();
+});
+searchClear.addEventListener('click', () => {
+  searchInput.value = '';
+  searchQuery = '';
+  searchControl.classList.remove('has-query');
+  searchClear.hidden = true;
+  showAll = false;
+  renderTransactions();
+  searchInput.focus();
+});
+searchInput.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    searchInput.value = '';
+    searchQuery = '';
+    searchControl.classList.remove('has-query');
+    searchClear.hidden = true;
+    showAll = false;
+    renderTransactions();
+    searchInput.blur();
+  }
+});
