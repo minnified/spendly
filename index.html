@@ -24,7 +24,7 @@
       </nav>
       <div class="sidebar-bottom">
         <div class="sidebar-note"><span class="note-spark">✳</span><p>Small steps today,<br><strong>big goals tomorrow!</strong></p><span class="note-orbit"></span></div>
-        <div class="profile"><div class="avatar">AK</div><div class="profile-copy"><strong>Aravind Kumar</strong><span>Personal account</span></div><button class="more-button" aria-label="More profile options">···</button></div>
+        <div class="profile"><div class="avatar" id="profile-initials">A</div><div class="profile-copy"><strong id="profile-name">Your account</strong><span>Personal account</span></div><button class="more-button" aria-label="More profile options">···</button></div>
       </div>
     </aside>
 
@@ -32,11 +32,11 @@
       <header class="topbar">
         <div class="mobile-brand"><span class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 11.2C7 8.9 8.9 7 11.2 7h9.6A4.2 4.2 0 0 1 25 11.2v9.6a4.2 4.2 0 0 1-4.2 4.2h-9.6A4.2 4.2 0 0 1 7 20.8v-9.6Z"/><path d="M11 16.2h10M16 11.2v10"/></svg></span><span class="brand-name">spendly<span class="brand-dot">.</span></span></div>
         <div class="breadcrumb"><span>Pages</span><span class="crumb-slash">/</span><strong id="current-page">Overview</strong></div>
-        <div class="top-actions"><button class="icon-button search-button" aria-label="Search transactions"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4.2 4.2"/></svg></button><button class="icon-button notification-button" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg><i></i></button><div class="top-avatar">A</div></div>
+        <div class="top-actions"><button class="icon-button search-button" aria-label="Search transactions"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4.2 4.2"/></svg></button><button class="icon-button notification-button" aria-label="Notifications"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg><i></i></button><div class="top-avatar" id="top-initial">A</div></div>
       </header>
 
       <div class="page-wrap">
-        <section class="welcome-row"><div><div class="eyebrow"><span class="eyebrow-line"></span>YOUR FINANCIAL SNAPSHOT</div><h1>Good morning, Aravind <span class="wave">✦</span></h1><p class="welcome-subtitle">Here’s what’s happening with your money today.</p></div><button class="primary-button" id="open-modal"><span class="plus">＋</span> Add transaction</button></section>
+        <section class="welcome-row"><div><div class="eyebrow"><span class="eyebrow-line"></span>YOUR FINANCIAL SNAPSHOT</div><h1>Good morning, <span id="greeting-name">there</span> <span class="wave">✦</span></h1><p class="welcome-subtitle">Here’s what’s happening with your money today. <button class="name-edit" id="edit-name" type="button">Edit name</button></p></div><button class="primary-button" id="open-modal"><span class="plus">＋</span> Add transaction</button></section>
 
         <section class="summary-grid" aria-label="Account summary">
           <article class="summary-card balance-card"><div class="card-top"><span class="card-label">Total balance</span><span class="card-icon balance-icon"><svg viewBox="0 0 24 24"><path d="M4 7.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-10a3 3 0 0 1 3-3h11"/><path d="M16 12h4v4h-4a2 2 0 0 1 0-4Z"/></svg></span></div><div class="amount" id="balance-amount">₹ 48,250<span>.00</span></div><div class="card-foot"><span class="trend-pill positive"><svg viewBox="0 0 16 16"><path d="m3 10 4-4 3 3 4-5M10 4h4v4"/></svg> 12.8%</span><span class="foot-note">vs. last month</span><span class="balance-sparkline" aria-hidden="true"><svg viewBox="0 0 108 34"><path class="spark-fill" d="M1 27 13 22 24 25 36 14 47 19 59 9 70 14 82 6 94 10 107 2v32H1Z"/><path class="spark-line" d="m1 27 12-5 11 3 12-11 11 5 12-10 11 5 12-8 12 4 13-8"/></svg></span></div></article>
@@ -56,12 +56,13 @@
             <article class="goal-card"><div class="goal-orb orb-one"></div><div class="goal-orb orb-two"></div><div class="goal-top"><span class="goal-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18m6-15H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H6"/></svg></span><span class="goal-menu">···</span></div><div class="goal-label">SAVINGS GOAL</div><h3>Summer getaway</h3><div class="goal-amount"><strong>₹32,000</strong><span>of ₹50,000</span></div><div class="progress-track"><span></span></div><div class="goal-foot"><span>64% completed</span><span>₹18,000 to go</span></div></article>
           </aside>
         </section>
-        <footer class="page-footer"><span>Made for mindful money moments</span><span>Spendly <span class="footer-dot">✳</span> 2025</span></footer>
+        <footer class="page-footer"><span>Made for mindful money maintainance</span><span>Spendly <span class="footer-dot">✳</span> 2026</span></footer>
       </div>
     </main>
   </div>
 
   <dialog class="transaction-modal" id="transaction-modal"><form method="dialog" id="transaction-form"><div class="modal-heading"><div><div class="section-kicker">NEW ENTRY</div><h2>Add a transaction</h2></div><button type="button" class="modal-close" id="close-modal" aria-label="Close">×</button></div><label for="transaction-title">Description</label><input id="transaction-title" name="title" placeholder="e.g. Coffee with friends" required maxlength="40"><div class="form-row"><div><label for="transaction-amount">Amount (₹)</label><input id="transaction-amount" name="amount" type="number" min="1" step="0.01" placeholder="0.00" required></div><div><label for="transaction-type">Type</label><select id="transaction-type" name="type"><option value="expense">Expense</option><option value="income">Income</option></select></div></div><label for="transaction-category">Category</label><select id="transaction-category" name="category"><option>Other</option><option>Food & drink</option><option>Shopping</option><option>Transport</option><option>Housing</option><option>Health</option><option>Salary</option><option>Entertainment</option></select><button class="primary-button modal-submit" type="submit">Add transaction <span>→</span></button></form></dialog>
+  <dialog class="transaction-modal name-modal" id="name-modal"><form id="name-form"><div class="modal-heading"><div><div class="section-kicker">WELCOME TO SPENDLY</div><h2 id="name-modal-title">What should we call you?</h2></div><button type="button" class="modal-close" id="close-name-modal" aria-label="Close" hidden>×</button></div><p class="name-modal-copy">Your personal finance snapshot starts here.</p><label for="user-name-input">Your name</label><input id="user-name-input" name="name" type="text" placeholder="Enter your name" maxlength="40" autocomplete="given-name" required><p class="name-error" id="name-error" aria-live="polite"></p><button class="primary-button modal-submit" type="submit">Continue <span>→</span></button></form></dialog>
   <script src="script.js"></script>
 </body>
 </html>
