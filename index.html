@@ -49,8 +49,18 @@
             <div class="panel-heading"><div><div class="section-kicker">YOUR ACTIVITY</div><h2>Recent transactions</h2></div><button class="text-button" id="view-all">View all <span>→</span></button></div>
             <div class="transaction-tools"><div class="transaction-count">
               <span class="count-dot"></span><span id="transaction-count">6 transactions</span> this month</div>
-              <label class="filter-control" aria-label="Filter transactions"><svg viewBox="0 0 24 24">
-                <path d="M4 6h16M7 12h10m-7 6h4"/></svg><select class="filter-button" id="filter-select" aria-label="Filter transactions"><option value="all">All Transactions</option><option value="income">Income</option><option value="expense">Expenses</option></select><span class="filter-chevron">⌄</span></label></div>
+              <div class="filter-control" id="filter-control">
+                <svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10m-7 6h4"/></svg>
+                <span class="filter-label" id="filter-label">All Transactions</span>
+                <button class="filter-toggle" id="filter-toggle" type="button" aria-label="Open transaction filters" aria-expanded="false" aria-controls="filter-menu">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+                </button>
+                <div class="filter-menu" id="filter-menu" role="menu" aria-label="Transaction filters" hidden>
+                  <button type="button" class="filter-option is-selected" data-filter="all" role="menuitemradio" aria-checked="true">All Transactions</button>
+                  <button type="button" class="filter-option" data-filter="income" role="menuitemradio" aria-checked="false">Income</button>
+                  <button type="button" class="filter-option" data-filter="expense" role="menuitemradio" aria-checked="false">Expenses</button>
+                </div>
+              </div></div>
             <div class="transaction-list" id="transaction-list"></div>
             <div class="list-footer"><span>Showing <strong id="showing-count">6</strong> of <strong id="total-count">6</strong> transactions</span><button id="show-more" class="show-more">Show more <span>↓</span></button></div>
           </article>

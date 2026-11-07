@@ -22,7 +22,7 @@ function updateGreeting() {
   const greeting = hour >= 5 && hour < 12 ? 'Good morning'
     : hour >= 12 && hour < 17 ? 'Good afternoon'
       : hour >= 17 && hour < 21 ? 'Good evening'
-        : 'Sleepy hours';
+        : 'Good night';
   document.querySelector('#greeting-time').textContent = greeting;
 }
 updateGreeting();
@@ -129,10 +129,44 @@ document.querySelector('#transaction-form').addEventListener('submit', event => 
   modal.close();
 });
 document.querySelector('#show-more').addEventListener('click', () => { showAll = !showAll; renderTransactions(); });
-document.querySelector('#filter-select').addEventListener('change', event => {
-  transactionFilter = event.currentTarget.value;
+const filterControl = document.querySelector('#filter-control');
+const filterToggle = document.querySelector('#filter-toggle');
+const filterMenu = document.querySelector('#filter-menu');
+
+function closeFilterMenu(returnFocus = false) {
+  filterMenu.hidden = true;
+  filterToggle.setAttribute('aria-expanded', 'false');
+  if (returnFocus) filterToggle.focus();
+}
+
+filterToggle.addEventListener('click', () => {
+  const isOpen = !filterMenu.hidden;
+  filterMenu.hidden = isOpen;
+  filterToggle.setAttribute('aria-expanded', String(!isOpen));
+});
+
+filterMenu.addEventListener('click', event => {
+  const option = event.target.closest('[data-filter]');
+  if (!option) return;
+
+  transactionFilter = option.dataset.filter;
+  document.querySelector('#filter-label').textContent = option.textContent;
+  filterMenu.querySelectorAll('[data-filter]').forEach(item => {
+    const isSelected = item === option;
+    item.classList.toggle('is-selected', isSelected);
+    item.setAttribute('aria-checked', String(isSelected));
+  });
   showAll = false;
+  closeFilterMenu(true);
   renderTransactions();
+});
+
+document.addEventListener('click', event => {
+  if (!filterMenu.hidden && !filterControl.contains(event.target)) closeFilterMenu();
+});
+
+filterControl.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !filterMenu.hidden) closeFilterMenu(true);
 });
 document.querySelector('#view-all').addEventListener('click', () => {
   showAll = true;
