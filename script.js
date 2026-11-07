@@ -8,7 +8,7 @@ const initialTransactions = [
 ];
 let transactions = [...initialTransactions];
 let showAll = false;
-let expenseFilter = false;
+let transactionFilter = 'all';
 const formatCurrency = amount => '₹' + Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatCompact = amount => '₹' + Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 const list = document.querySelector('#transaction-list');
@@ -16,6 +16,16 @@ const nameModal = document.querySelector('#name-modal');
 const nameInput = document.querySelector('#user-name-input');
 const nameError = document.querySelector('#name-error');
 let activeName = (localStorage.getItem('spendly-user-name') || '').trim();
+
+function updateGreeting() {
+  const hour = new Date().getHours();
+  const greeting = hour >= 5 && hour < 12 ? 'Good morning'
+    : hour >= 12 && hour < 17 ? 'Good afternoon'
+      : hour >= 17 && hour < 21 ? 'Good evening'
+        : 'Sleepy hours';
+  document.querySelector('#greeting-time').textContent = greeting;
+}
+updateGreeting();
 
 function displayName(name) {
   activeName = name;
@@ -71,7 +81,7 @@ nameModal.addEventListener('cancel', event => {
 });
 
 function renderTransactions() {
-  const visible = transactions.filter(item => !expenseFilter || item.type === 'expense');
+  const visible = transactions.filter(item => transactionFilter === 'all' || item.type === transactionFilter);
   const shown = showAll ? visible : visible.slice(0, 6);
   list.innerHTML = shown.length ? shown.map(item => `
     <div class="transaction-row">
@@ -114,16 +124,14 @@ document.querySelector('#transaction-form').addEventListener('submit', event => 
   const tints = { 'Food & drink': 'tint-peach', Shopping: 'tint-purple', Transport: 'tint-blue', Housing: 'tint-sage', Health: 'tint-pink', Salary: 'tint-sage', Entertainment: 'tint-yellow', Other: 'tint-purple' };
   transactions.unshift({ title: form.get('title').trim(), category: form.get('category'), date: 'Just now', amount: Number(form.get('amount')), type, icon: icons[form.get('category')] || '✦', tint: tints[form.get('category')] || 'tint-purple' });
   showAll = false;
-  expenseFilter = false;
-  document.querySelector('#filter-button').innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10m-7 6h4"/></svg>Filter<span class="filter-chevron">⌄</span>';
   renderTransactions();
   event.currentTarget.reset();
   modal.close();
 });
 document.querySelector('#show-more').addEventListener('click', () => { showAll = !showAll; renderTransactions(); });
-document.querySelector('#filter-button').addEventListener('click', event => {
-  expenseFilter = !expenseFilter;
-  event.currentTarget.innerHTML = expenseFilter ? '<svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10m-7 6h4"/></svg>Expenses<span class="filter-chevron">×</span>' : '<svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10m-7 6h4"/></svg>Filter<span class="filter-chevron">⌄</span>';
+document.querySelector('#filter-select').addEventListener('change', event => {
+  transactionFilter = event.currentTarget.value;
+  showAll = false;
   renderTransactions();
 });
 document.querySelector('#view-all').addEventListener('click', () => {
