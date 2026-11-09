@@ -1,12 +1,53 @@
 const initialTransactions = [
-  { title: 'Monthly salary', category: 'Income', date: 'Today, 9:14 AM', amount: 64500, type: 'income', icon: '↗', tint: 'tint-sage' },
-  { title: 'Grocery shopping', category: 'Essentials', date: 'Today, 8:32 AM', amount: 2840, type: 'expense', icon: '▤', tint: 'tint-purple' },
-  { title: 'Coffee & brunch', category: 'Food & drink', date: 'Yesterday', amount: 680, type: 'expense', icon: '☕', tint: 'tint-peach' },
-  { title: 'Uber ride', category: 'Transport', date: 'Yesterday', amount: 420, type: 'expense', icon: '⌁', tint: 'tint-blue' },
-  { title: 'Streaming subscription', category: 'Entertainment', date: 'Nov 04, 2025', amount: 499, type: 'expense', icon: '▷', tint: 'tint-pink' },
-  { title: 'Weekend dinner', category: 'Food & drink', date: 'Nov 03, 2025', amount: 1250, type: 'expense', icon: '✦', tint: 'tint-yellow' }
+  { id: 'sample-salary', title: 'Monthly salary', category: 'Income', date: 'Today, 9:14 AM', amount: 64500, type: 'income', icon: '↗', tint: 'tint-sage' },
+  { id: 'sample-grocery', title: 'Grocery shopping', category: 'Essentials', date: 'Today, 8:32 AM', amount: 2840, type: 'expense', icon: '▤', tint: 'tint-purple' },
+  { id: 'sample-coffee', title: 'Coffee & brunch', category: 'Food & drink', date: 'Yesterday', amount: 680, type: 'expense', icon: '☕', tint: 'tint-peach' },
+  { id: 'sample-uber', title: 'Uber ride', category: 'Transport', date: 'Yesterday', amount: 420, type: 'expense', icon: '⌁', tint: 'tint-blue' },
+  { id: 'sample-streaming', title: 'Streaming subscription', category: 'Entertainment', date: 'Nov 04, 2025', amount: 499, type: 'expense', icon: '▷', tint: 'tint-pink' },
+  { id: 'sample-dinner', title: 'Weekend dinner', category: 'Food & drink', date: 'Nov 03, 2025', amount: 1250, type: 'expense', icon: '✦', tint: 'tint-yellow' }
 ];
-let transactions = [...initialTransactions];
+const transactionStorageKey = 'spendly-transactions';
+
+function createTransactionId() {
+  return window.crypto?.randomUUID?.() || `transaction-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function saveTransactions(items) {
+  localStorage.setItem(transactionStorageKey, JSON.stringify(items));
+}
+
+function loadTransactions() {
+  const savedTransactions = localStorage.getItem(transactionStorageKey);
+  if (savedTransactions === null) {
+    const samples = initialTransactions.map(item => ({ ...item }));
+    saveTransactions(samples);
+    return samples;
+  }
+
+  try {
+    const parsedTransactions = JSON.parse(savedTransactions);
+    if (!Array.isArray(parsedTransactions)) return [];
+
+    let needsSave = false;
+    const loadedTransactions = parsedTransactions
+      .filter(item => item && typeof item.title === 'string' && typeof item.category === 'string'
+        && ['income', 'expense'].includes(item.type) && Number.isFinite(Number(item.amount)))
+      .map(item => {
+        if (item.id !== undefined && item.id !== null && String(item.id)) {
+          return { ...item, id: String(item.id), amount: Number(item.amount) };
+        }
+        needsSave = true;
+        return { ...item, id: createTransactionId(), amount: Number(item.amount) };
+      });
+
+    if (needsSave) saveTransactions(loadedTransactions);
+    return loadedTransactions;
+  } catch {
+    return [];
+  }
+}
+
+let transactions = loadTransactions();
 let showAll = false;
 let transactionFilter = 'all';
 let searchQuery = '';
@@ -91,9 +132,10 @@ function renderTransactions() {
   const shown = showAll ? visible : visible.slice(0, 6);
   list.innerHTML = shown.length ? shown.map(item => `
     <div class="transaction-row">
-      <div class="transaction-main"><span class="transaction-icon ${item.tint}">${item.icon}</span><div><div class="transaction-name">${escapeHTML(item.title)}</div><div class="transaction-sub">${item.type === 'income' ? 'Money in' : 'Money out'}</div></div></div>
+      <div class="transaction-main"><span class="transaction-icon ${escapeHTML(item.tint)}">${escapeHTML(item.icon)}</span><div><div class="transaction-name">${escapeHTML(item.title)}</div><div class="transaction-sub">${item.type === 'income' ? 'Money in' : 'Money out'}</div></div></div>
       <span class="category-chip">${escapeHTML(item.category)}</span><span class="transaction-date">${escapeHTML(item.date)}</span>
       <span class="transaction-amount ${item.type}">${item.type === 'income' ? '+' : '−'}${formatCurrency(item.amount)}</span>
+      <button class="transaction-delete" type="button" data-delete-id="${escapeHTML(item.id)}" aria-label="Delete ${escapeHTML(item.title)}" title="Delete transaction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
     </div>`).join('') : '<div class="empty-state">No transactions to show yet.</div>';
   document.querySelector('#transaction-count').textContent = `${visible.length} transaction${visible.length === 1 ? '' : 's'}`;
   document.querySelector('#showing-count').textContent = shown.length;
@@ -128,11 +170,20 @@ document.querySelector('#transaction-form').addEventListener('submit', event => 
   const type = form.get('type');
   const icons = { 'Food & drink': '☕', Shopping: '▤', Transport: '⌁', Housing: '⌂', Health: '＋', Salary: '↗', Entertainment: '▷', Other: '✦' };
   const tints = { 'Food & drink': 'tint-peach', Shopping: 'tint-purple', Transport: 'tint-blue', Housing: 'tint-sage', Health: 'tint-pink', Salary: 'tint-sage', Entertainment: 'tint-yellow', Other: 'tint-purple' };
-  transactions.unshift({ title: form.get('title').trim(), category: form.get('category'), date: 'Just now', amount: Number(form.get('amount')), type, icon: icons[form.get('category')] || '✦', tint: tints[form.get('category')] || 'tint-purple' });
+  transactions.unshift({ id: createTransactionId(), title: form.get('title').trim(), category: form.get('category'), date: 'Just now', amount: Number(form.get('amount')), type, icon: icons[form.get('category')] || '✦', tint: tints[form.get('category')] || 'tint-purple' });
+  saveTransactions(transactions);
   showAll = false;
   renderTransactions();
   event.currentTarget.reset();
   modal.close();
+});
+list.addEventListener('click', event => {
+  const deleteButton = event.target.closest('[data-delete-id]');
+  if (!deleteButton) return;
+
+  transactions = transactions.filter(item => item.id !== deleteButton.dataset.deleteId);
+  saveTransactions(transactions);
+  renderTransactions();
 });
 document.querySelector('#show-more').addEventListener('click', () => { showAll = !showAll; renderTransactions(); });
 const filterControl = document.querySelector('#filter-control');
