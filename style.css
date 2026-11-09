@@ -872,17 +872,18 @@ body {
 }
 
 .transaction-date {
-  font-size: 8px;
+  font-size: 10px;
   color: #9d9ca4;
   white-space: nowrap;
 }
 
 .transaction-amount {
   text-align: right;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
-  color: #4d4c56;
+  /* color: #4d4c56; */
+  color:#722F37
 }
 
 .transaction-amount.income {
@@ -1870,6 +1871,10 @@ body {
     grid-row: 1/3;
     font-size: 10px;
   }
+
+  /* .transaction-amount.expense{
+    color:#722F37
+  } */
 
   .transaction-delete {
     grid-column: 4;
