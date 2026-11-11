@@ -766,6 +766,64 @@ body {
   font-weight: 700;
 }
 
+.transaction-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #9998a1;
+  font-size: 9px;
+}
+
+.sort-control select {
+  max-width: 118px;
+  border: 1px solid #eeedea;
+  border-radius: 7px;
+  padding: 6px 20px 6px 8px;
+  background: #fff;
+  color: #696872;
+  font: 600 9px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+
+.data-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  padding: 9px 0 4px;
+}
+
+.data-toolbar button,
+.data-toolbar .import-button {
+  border: 1px solid #eeedea;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: #fff;
+  color: #888790;
+  font: 600 8px 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background-color var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.data-toolbar button:hover,
+.data-toolbar .import-button:hover {
+  background: #f8f7fb;
+  border-color: #dcd7ed;
+  color: #7266ac;
+}
+
+.data-status {
+  align-self: center;
+  margin-left: 3px;
+  color: #898790;
+  font-size: 8px;
+}
+
 .count-dot {
   display: inline-block;
   width: 6px;
@@ -904,6 +962,28 @@ body {
   transition: background-color var(--transition), color var(--transition), opacity var(--transition);
 }
 
+.transaction-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.transaction-edit {
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 6px;
+  background: transparent;
+  color: #9896a0;
+  font: 600 8px 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background-color var(--transition), color var(--transition);
+}
+
+.transaction-edit:hover {
+  background: #f2f0f8;
+  color: #7266ac;
+}
+
 .transaction-delete svg {
   width: 14px;
   height: 14px;
@@ -929,6 +1009,11 @@ body {
   text-align: center;
   color: #9998a1;
   font-size: 11px;
+}
+
+.goal-empty {
+  max-width: 205px;
+  line-height: 1.5;
 }
 
 .list-footer {
@@ -2012,6 +2097,11 @@ body {
     min-height: 62px;
   }
 
+  .transaction-actions {
+    grid-column: 4;
+    grid-row: 1/3;
+  }
+
   .transaction-main {
     grid-column: 1;
     grid-row: 1/3;
@@ -2044,9 +2134,20 @@ body {
 
 
   .transaction-delete {
-    grid-column: 4;
-    grid-row: 1/3;
     opacity: 1;
+  }
+
+  .transaction-tools {
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+
+  .transaction-controls {
+    gap: 6px;
+  }
+
+  .sort-control select {
+    max-width: 105px;
   }
 
   .right-column {

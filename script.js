@@ -138,12 +138,76 @@ function formatGoalAmount(amount) {
   return `₹${Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
+function downloadFile(filename, content, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function csvCell(value) {
+  const text = String(value ?? '');
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function validateBackup(parsed) {
+  if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.transactions) || !Array.isArray(parsed.savingsGoals)) {
+    throw new Error('This file does not contain a Spendly backup.');
+  }
+  const importedTransactions = parsed.transactions.map((item, index) => {
+    const amount = Number(item?.amount);
+    let dateISO = isValidDateISO(item?.dateISO) ? item.dateISO : '';
+    if (!dateISO && typeof item?.date === 'string' && item.date.trim()) {
+      if (/^(today|yesterday|just now)$/i.test(item.date.trim())) dateISO = transactionDateISO(item);
+      else {
+        const parsedDate = new Date(item.date);
+        if (!Number.isNaN(parsedDate.getTime())) dateISO = localDateISO(parsedDate);
+      }
+    }
+    if (!item || typeof item.title !== 'string' || !item.title.trim() || typeof item.category !== 'string'
+      || !item.category.trim() || !['income', 'expense'].includes(item.type) || !Number.isFinite(amount) || amount <= 0
+      || !isValidDateISO(dateISO)) throw new Error(`Transaction ${index + 1} has invalid or missing details.`);
+    return { ...item, id: String(item.id || createTransactionId()), title: item.title.trim(), category: item.category.trim(), amount, dateISO, date: formatTransactionDate(dateISO), ...transactionAppearance(item.category.trim()) };
+  });
+  const transactionIds = new Set();
+  importedTransactions.forEach(item => {
+    if (transactionIds.has(item.id)) item.id = createTransactionId();
+    transactionIds.add(item.id);
+  });
+  const importedGoals = parsed.savingsGoals.map((goal, index) => {
+    const normalized = normalizeGoal(goal);
+    if (!normalized) throw new Error(`Savings goal ${index + 1} has invalid or missing details.`);
+    if (goal.contributions !== undefined && !Array.isArray(goal.contributions)) throw new Error(`Savings goal ${index + 1} has invalid contributions.`);
+    if ((goal.contributions || []).some(item => !item || !Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0)) {
+      throw new Error(`Savings goal ${index + 1} has an invalid contribution amount.`);
+    }
+    if ((goal.contributions || []).some(item => item.dateISO !== undefined && !isValidDateISO(item.dateISO))) {
+      throw new Error(`Savings goal ${index + 1} has an invalid contribution date.`);
+    }
+    return normalized;
+  });
+  const goalIds = new Set();
+  importedGoals.forEach(goal => {
+    if (goalIds.has(goal.id)) goal.id = createGoalId();
+    goalIds.add(goal.id);
+  });
+  const userName = parsed.userName === undefined ? '' : parsed.userName;
+  if (typeof userName !== 'string' || userName.length > 40) throw new Error('The saved user name is invalid.');
+  return { transactions: importedTransactions, savingsGoals: importedGoals, userName: userName.trim() };
+}
+
 let transactions = loadTransactions();
 let savingsGoals = loadSavingsGoals();
 let activeGoalId = null;
 let showAll = false;
 let transactionFilter = 'all';
 let searchQuery = '';
+let transactionSort = 'newest';
+let editingTransactionId = null;
 let selectedSpendingMonth = localDateISO().slice(0, 7);
 const formatCurrency = amount => '₹' + Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatCompact = amount => '₹' + Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -161,6 +225,20 @@ const savingsForm = document.querySelector('#savings-form');
 const savingsAmountInput = document.querySelector('#savings-amount-input');
 const savingsError = document.querySelector('#savings-error');
 let activeName = (localStorage.getItem('spendly-user-name') || '').trim();
+const categoryIcons = { 'Food & drink': '☕', Shopping: '▤', Transport: '⌁', Housing: '⌂', Health: '＋', Salary: '↗', Entertainment: '▷', Other: '✦' };
+const categoryTints = { 'Food & drink': 'tint-peach', Shopping: 'tint-purple', Transport: 'tint-blue', Housing: 'tint-sage', Health: 'tint-pink', Salary: 'tint-sage', Entertainment: 'tint-yellow', Other: 'tint-purple' };
+
+function transactionAppearance(category) {
+  return { icon: categoryIcons[category] || '✦', tint: categoryTints[category] || 'tint-purple' };
+}
+
+function sortTransactionItems(items) {
+  const sorted = [...items];
+  if (transactionSort === 'oldest') return sorted.sort((a, b) => a.dateISO.localeCompare(b.dateISO));
+  if (transactionSort === 'highest') return sorted.sort((a, b) => Number(b.amount) - Number(a.amount));
+  if (transactionSort === 'lowest') return sorted.sort((a, b) => Number(a.amount) - Number(b.amount));
+  return sorted.sort((a, b) => b.dateISO.localeCompare(a.dateISO));
+}
 
 function updateGreeting() {
   const hour = new Date().getHours();
@@ -309,6 +387,7 @@ document.querySelector('#goal-list').addEventListener('click', event => {
     return;
   }
   if (button.dataset.goalAction === 'delete') {
+    if (!window.confirm(`Delete the savings goal “${goal.name}” and its contributions? This cannot be undone.`)) return;
     savingsGoals = savingsGoals.filter(item => item.id !== goalId);
     saveSavingsGoals();
     renderGoalCard();
@@ -362,14 +441,15 @@ function renderTransactions() {
     const matchesSearch = !query || item.title.toLowerCase().includes(query) || item.category.toLowerCase().includes(query);
     return matchesFilter && matchesSearch;
   });
-  const shown = showAll ? visible : visible.slice(0, 6);
+  const sortedVisible = sortTransactionItems(visible);
+  const shown = showAll ? sortedVisible : sortedVisible.slice(0, 6);
   list.innerHTML = shown.length ? shown.map(item => `
     <div class="transaction-row">
       <div class="transaction-main"><span class="transaction-icon ${escapeHTML(item.tint)}">${escapeHTML(item.icon)}</span><div><div class="transaction-name">${escapeHTML(item.title)}</div><div class="transaction-sub">${item.type === 'income' ? 'Money in' : 'Money out'}</div></div></div>
       <span class="category-chip">${escapeHTML(item.category)}</span><span class="transaction-date">${escapeHTML(item.date)}</span>
       <span class="transaction-amount ${item.type}">${item.type === 'income' ? '+' : '−'}${formatCurrency(item.amount)}</span>
-      <button class="transaction-delete" type="button" data-delete-id="${escapeHTML(item.id)}" aria-label="Delete ${escapeHTML(item.title)}" title="Delete transaction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
-    </div>`).join('') : '<div class="empty-state">No transactions to show yet.</div>';
+      <span class="transaction-actions"><button class="transaction-edit" type="button" data-edit-id="${escapeHTML(item.id)}" aria-label="Edit ${escapeHTML(item.title)}" title="Edit transaction">Edit</button><button class="transaction-delete" type="button" data-delete-id="${escapeHTML(item.id)}" aria-label="Delete ${escapeHTML(item.title)}" title="Delete transaction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button></span>
+    </div>`).join('') : `<div class="empty-state">${transactions.length === 0 ? 'No transactions yet. Add your first transaction to get started.' : 'No transactions match your current search or filter.'}</div>`;
   document.querySelector('#transaction-count').textContent = `${visible.length} transaction${visible.length === 1 ? '' : 's'}`;
   document.querySelector('#showing-count').textContent = shown.length;
   document.querySelector('#total-count').textContent = visible.length;
@@ -429,7 +509,7 @@ function updateSpendingPanel() {
     legend.innerHTML = categories.map(([category, amount], index) => `<div><span class="legend-dot" style="background:${chartColors[index % chartColors.length]}"></span><span>${escapeHTML(category)}</span><strong>${formatGoalAmount(amount)}</strong></div>`).join('');
   } else {
     donut.style.background = '';
-    legend.innerHTML = '<p class="chart-empty">No spending data yet</p>';
+    legend.innerHTML = '<p class="chart-empty">No spending data yet.</p>';
   }
   document.querySelector('#chart-total').textContent = formatGoalAmount(expense);
   const periodText = selectedSpendingMonth === currentMonth
@@ -437,7 +517,7 @@ function updateSpendingPanel() {
     : `in ${monthLabel(selectedSpendingMonth)}`;
   document.querySelector('#spending-tip-text').textContent = expense
     ? `${monthlyExpenses.length} expense transaction${monthlyExpenses.length === 1 ? '' : 's'} recorded ${periodText}.`
-    : `No spending data yet ${periodText}.`;
+    : `No expenses recorded ${periodText} yet.`;
 }
 
 function escapeHTML(value) {
@@ -449,33 +529,119 @@ renderTransactions();
 const modal = document.querySelector('#transaction-modal');
 const transactionDateInput = document.querySelector('#transaction-date');
 document.querySelector('#open-modal').addEventListener('click', () => {
+  editingTransactionId = null;
+  document.querySelector('#transaction-modal-kicker').textContent = 'NEW ENTRY';
+  document.querySelector('#transaction-modal-title').textContent = 'Add a transaction';
+  document.querySelector('#transaction-submit').innerHTML = 'Add transaction <span>→</span>';
+  document.querySelector('#transaction-form').reset();
   transactionDateInput.value = localDateISO();
   modal.showModal();
 });
-document.querySelector('#close-modal').addEventListener('click', () => modal.close());
+document.querySelector('#close-modal').addEventListener('click', () => {
+  editingTransactionId = null;
+  modal.close();
+});
 document.querySelector('#transaction-form').addEventListener('submit', event => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const type = form.get('type');
   const dateISO = form.get('date');
-  const icons = { 'Food & drink': '☕', Shopping: '▤', Transport: '⌁', Housing: '⌂', Health: '＋', Salary: '↗', Entertainment: '▷', Other: '✦' };
-  const tints = { 'Food & drink': 'tint-peach', Shopping: 'tint-purple', Transport: 'tint-blue', Housing: 'tint-sage', Health: 'tint-pink', Salary: 'tint-sage', Entertainment: 'tint-yellow', Other: 'tint-purple' };
-  transactions.unshift({ id: createTransactionId(), title: form.get('title').trim(), category: form.get('category'), date: formatTransactionDate(dateISO), dateISO, amount: Number(form.get('amount')), type, icon: icons[form.get('category')] || '✦', tint: tints[form.get('category')] || 'tint-purple' });
+  const category = form.get('category');
+  const existing = transactions.find(item => item.id === editingTransactionId);
+  const updatedTransaction = { ...(existing || {}), id: existing?.id || createTransactionId(), title: form.get('title').trim(), category, date: formatTransactionDate(dateISO), dateISO, amount: Number(form.get('amount')), type, ...transactionAppearance(category) };
+  if (existing) transactions = transactions.map(item => item.id === existing.id ? updatedTransaction : item);
+  else transactions.unshift(updatedTransaction);
   saveTransactions(transactions);
-  showAll = false;
+  editingTransactionId = null;
   renderTransactions();
   event.currentTarget.reset();
   modal.close();
 });
 list.addEventListener('click', event => {
+  const editButton = event.target.closest('[data-edit-id]');
+  if (editButton) {
+    const item = transactions.find(transaction => transaction.id === editButton.dataset.editId);
+    if (!item) return;
+    editingTransactionId = item.id;
+    document.querySelector('#transaction-modal-kicker').textContent = 'EDIT ENTRY';
+    document.querySelector('#transaction-modal-title').textContent = 'Edit transaction';
+    document.querySelector('#transaction-submit').innerHTML = 'Save changes <span>→</span>';
+    document.querySelector('#transaction-title').value = item.title;
+    document.querySelector('#transaction-amount').value = item.amount;
+    document.querySelector('#transaction-type').value = item.type;
+    const categorySelect = document.querySelector('#transaction-category');
+    if (![...categorySelect.options].some(option => option.value === item.category)) categorySelect.add(new Option(item.category, item.category));
+    categorySelect.value = item.category;
+    transactionDateInput.value = item.dateISO;
+    modal.showModal();
+    document.querySelector('#transaction-title').focus();
+    return;
+  }
   const deleteButton = event.target.closest('[data-delete-id]');
   if (!deleteButton) return;
-
+  const item = transactions.find(transaction => transaction.id === deleteButton.dataset.deleteId);
+  if (!item || !window.confirm(`Delete the transaction “${item.title}”? This cannot be undone.`)) return;
   transactions = transactions.filter(item => item.id !== deleteButton.dataset.deleteId);
   saveTransactions(transactions);
   renderTransactions();
 });
 document.querySelector('#show-more').addEventListener('click', () => { showAll = !showAll; renderTransactions(); });
+document.querySelector('#transaction-sort').addEventListener('change', event => {
+  transactionSort = event.currentTarget.value;
+  showAll = false;
+  renderTransactions();
+});
+document.querySelector('#export-csv').addEventListener('click', () => {
+  const rows = [['Date', 'Title', 'Amount', 'Type', 'Category'], ...sortTransactionItems(transactions).map(item => [item.dateISO, item.title, item.amount, item.type, item.category])];
+  downloadFile(`spendly-transactions-${localDateISO()}.csv`, `\uFEFF${rows.map(row => row.map(csvCell).join(',')).join('\r\n')}`, 'text/csv;charset=utf-8');
+  document.querySelector('#data-status').textContent = 'CSV exported.';
+});
+document.querySelector('#export-backup').addEventListener('click', () => {
+  const backup = {
+    app: 'Spendly',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    userName: localStorage.getItem('spendly-user-name') || '',
+    transactions,
+    savingsGoals
+  };
+  downloadFile(`spendly-backup-${localDateISO()}.json`, JSON.stringify(backup, null, 2), 'application/json');
+  document.querySelector('#data-status').textContent = 'Backup exported.';
+});
+document.querySelector('#import-backup-file').addEventListener('change', async event => {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    const backup = validateBackup(parsed);
+    if (!window.confirm(`Import ${backup.transactions.length} transactions and ${backup.savingsGoals.length} savings goals? This will replace your current Spendly data.`)) return;
+    localStorage.setItem(transactionStorageKey, JSON.stringify(backup.transactions));
+    localStorage.setItem(savingsGoalsStorageKey, JSON.stringify(backup.savingsGoals));
+    localStorage.removeItem(legacySavingsGoalStorageKey);
+    if (backup.userName) localStorage.setItem('spendly-user-name', backup.userName);
+    else localStorage.removeItem('spendly-user-name');
+    transactions = backup.transactions;
+    savingsGoals = backup.savingsGoals;
+    activeName = backup.userName;
+    if (activeName) displayName(activeName);
+    else {
+      document.querySelector('#greeting-name').textContent = 'there';
+      document.querySelector('#profile-name').textContent = 'Your account';
+      document.querySelector('#profile-initials').textContent = 'A';
+      document.querySelector('#top-initial').textContent = 'A';
+    }
+    selectedSpendingMonth = localDateISO().slice(0, 7);
+    showAll = false;
+    renderGoalCard();
+    renderTransactions();
+    document.querySelector('#data-status').textContent = 'Spendly backup imported successfully.';
+  } catch (error) {
+    document.querySelector('#data-status').textContent = `Could not import backup: ${error.message || 'The file is invalid.'}`;
+  } finally {
+    input.value = '';
+  }
+});
 const monthPicker = document.querySelector('#spending-month-picker');
 const monthToggle = document.querySelector('#spending-month-toggle');
 const monthMenu = document.querySelector('#spending-month-menu');
