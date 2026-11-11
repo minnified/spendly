@@ -22,6 +22,6 @@ Clone the repository and open `index.html` in your browser.
 
 ### Live Demo
 
-ruepeely.netlify.app
+(https://reupeely.netlify.app/)
 
 Built as a personal project to learn and explore frontend development.
