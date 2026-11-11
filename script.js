@@ -1,5 +1,7 @@
 const transactionStorageKey = 'spendly-transactions';
-const savingsGoalStorageKey = 'spendly-savings-goal';
+const savingsGoalsStorageKey = 'spendly-savings-goals';
+const legacySavingsGoalStorageKey = 'spendly-savings-goal';
+const chartColors = ['#9385cd', '#8fb49e', '#e3b59c', '#829aac', '#d18e9d', '#c1a76d', '#779d9a', '#b28cc3'];
 
 function createTransactionId() {
   return window.crypto?.randomUUID?.() || `transaction-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -87,32 +89,48 @@ function loadTransactions() {
   }
 }
 
-function loadSavingsGoal() {
-  const savedGoal = localStorage.getItem(savingsGoalStorageKey);
-  if (savedGoal === null) return null;
+function createGoalId() {
+  return window.crypto?.randomUUID?.() || `goal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
+function normalizeGoal(goal) {
+  const target = Number(goal?.target);
+  if (!goal || typeof goal.name !== 'string' || !goal.name.trim() || !Number.isFinite(target) || target <= 0) return null;
+  const contributions = Array.isArray(goal.contributions)
+    ? goal.contributions.filter(item => item && Number.isFinite(Number(item.amount)) && Number(item.amount) > 0)
+      .map(item => ({ amount: Number(item.amount), dateISO: isValidDateISO(item.dateISO) ? item.dateISO : localDateISO() }))
+    : [];
+  return { id: String(goal.id || createGoalId()), name: goal.name.trim(), target, contributions };
+}
+
+function loadSavingsGoals() {
+  const savedGoals = localStorage.getItem(savingsGoalsStorageKey);
   try {
-    const parsedGoal = JSON.parse(savedGoal);
-    const target = Number(parsedGoal.target);
-    if (!parsedGoal || typeof parsedGoal.name !== 'string' || !parsedGoal.name.trim()
-      || !Number.isFinite(target) || target <= 0) return null;
-
-    const contributions = Array.isArray(parsedGoal.contributions)
-      ? parsedGoal.contributions.filter(item => item && Number.isFinite(Number(item.amount)) && Number(item.amount) > 0)
-        .map(item => ({ amount: Number(item.amount) }))
-      : [];
-    return { name: parsedGoal.name.trim(), target, contributions };
+    if (savedGoals !== null) {
+      const parsedGoals = JSON.parse(savedGoals);
+      return Array.isArray(parsedGoals) ? parsedGoals.map(normalizeGoal).filter(Boolean) : [];
+    }
+    const legacyGoalText = localStorage.getItem(legacySavingsGoalStorageKey);
+    if (legacyGoalText) {
+      const legacyGoal = normalizeGoal(JSON.parse(legacyGoalText));
+      if (legacyGoal) {
+        const migrated = [legacyGoal];
+        localStorage.setItem(savingsGoalsStorageKey, JSON.stringify(migrated));
+        return migrated;
+      }
+    }
   } catch {
-    return null;
+    return [];
   }
+  return [];
 }
 
-function saveSavingsGoal() {
-  localStorage.setItem(savingsGoalStorageKey, JSON.stringify(savingsGoal));
+function saveSavingsGoals() {
+  localStorage.setItem(savingsGoalsStorageKey, JSON.stringify(savingsGoals));
 }
 
-function savingsContributionTotal() {
-  const total = (savingsGoal?.contributions || []).reduce((sum, item) => sum + Number(item.amount), 0);
+function savingsContributionTotal(goal) {
+  const total = goal.contributions.reduce((sum, item) => sum + Number(item.amount), 0);
   return Number(total.toFixed(2));
 }
 
@@ -121,7 +139,8 @@ function formatGoalAmount(amount) {
 }
 
 let transactions = loadTransactions();
-let savingsGoal = loadSavingsGoal();
+let savingsGoals = loadSavingsGoals();
+let activeGoalId = null;
 let showAll = false;
 let transactionFilter = 'all';
 let searchQuery = '';
@@ -164,44 +183,39 @@ function displayName(name) {
 }
 
 function renderGoalCard() {
-  const target = savingsGoal?.target || 0;
-  const saved = savingsContributionTotal();
-  const remaining = Math.max(0, target - saved);
-  const percentage = target ? Math.min(100, Math.round(saved / target * 100)) : 0;
-
-  document.querySelector('#goal-name').textContent = savingsGoal?.name || 'Create your first goal';
-  document.querySelector('#goal-saved-amount').textContent = formatGoalAmount(saved);
-  document.querySelector('#goal-target-amount').textContent = formatGoalAmount(target);
-  document.querySelector('#goal-percent').textContent = `${percentage}% completed`;
-  document.querySelector('#goal-remaining').textContent = savingsGoal
-    ? `${formatGoalAmount(remaining)} to go`
-    : 'Set a target to begin';
-  document.querySelector('#goal-progress-fill').style.width = `${percentage}%`;
-  const progress = document.querySelector('#goal-progress');
-  progress.setAttribute('aria-valuenow', String(percentage));
-  document.querySelector('#add-savings').disabled = !savingsGoal;
+  const list = document.querySelector('#goal-list');
+  const emptyState = document.querySelector('#goal-empty');
+  emptyState.hidden = savingsGoals.length > 0;
+  list.innerHTML = savingsGoals.map(goal => {
+    const saved = savingsContributionTotal(goal);
+    const remaining = Math.max(0, goal.target - saved);
+    const percentage = Math.min(100, Math.round(saved / goal.target * 100));
+    const goalId = escapeHTML(goal.id);
+    return `<section class="goal-entry"><h3>${escapeHTML(goal.name)}</h3><div class="goal-amount"><strong>${formatGoalAmount(saved)}</strong><span>of ${formatGoalAmount(goal.target)}</span></div><div class="progress-track" role="progressbar" aria-label="${escapeHTML(goal.name)} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentage}"><span style="width:${percentage}%"></span></div><div class="goal-foot"><span>${percentage}% completed</span><span>${formatGoalAmount(remaining)} to go</span></div><div class="goal-entry-actions"><button class="goal-action" type="button" data-goal-action="save" data-goal-id="${goalId}">＋ Add savings</button><button class="goal-action" type="button" data-goal-action="edit" data-goal-id="${goalId}">Edit</button><button class="goal-action goal-delete" type="button" data-goal-action="delete" data-goal-id="${goalId}" aria-label="Delete ${escapeHTML(goal.name)}">Delete</button></div></section>`;
+  }).join('');
 }
 
-function openGoalModal(editing = false) {
-  document.querySelector('#goal-modal-title').textContent = editing ? 'Edit your savings goal' : 'Set your savings goal';
+function openGoalModal(goalId = null) {
+  const goal = savingsGoals.find(item => item.id === goalId);
+  activeGoalId = goal?.id || null;
+  const editing = Boolean(goal);
+  document.querySelector('#goal-modal-title').textContent = editing ? 'Edit your savings goal' : 'Create a savings goal';
   document.querySelector('#goal-modal-kicker').textContent = editing ? 'UPDATE YOUR GOAL' : 'SAVINGS GOAL';
-  goalForm.querySelector('button[type="submit"]').innerHTML = editing
-    ? 'Save goal <span>→</span>'
-    : 'Create goal <span>→</span>';
-  document.querySelector('#close-goal-modal').hidden = !editing;
-  goalNameInput.value = savingsGoal?.name || '';
-  goalTargetInput.value = savingsGoal?.target || '';
+  goalForm.querySelector('button[type="submit"]').innerHTML = editing ? 'Save goal <span>→</span>' : 'Create goal <span>→</span>';
+  document.querySelector('#close-goal-modal').hidden = false;
+  goalNameInput.value = goal?.name || '';
+  goalTargetInput.value = goal?.target || '';
   goalError.textContent = '';
   goalNameInput.setCustomValidity('');
   goalTargetInput.setCustomValidity('');
   goalModal.showModal();
+  goalNameInput.focus();
 }
 
 renderGoalCard();
 
 if (activeName) {
   displayName(activeName);
-  if (!savingsGoal) openGoalModal();
 } else {
   nameModal.showModal();
 }
@@ -220,7 +234,6 @@ document.querySelector('#name-form').addEventListener('submit', event => {
   nameError.textContent = '';
   displayName(name);
   nameModal.close();
-  if (!savingsGoal) openGoalModal();
 });
 
 nameInput.addEventListener('input', () => {
@@ -257,13 +270,16 @@ goalForm.addEventListener('submit', event => {
     return;
   }
 
-  savingsGoal = {
-    name,
-    target,
-    contributions: savingsGoal?.contributions || []
-  };
-  saveSavingsGoal();
+  const existingGoal = savingsGoals.find(goal => goal.id === activeGoalId);
+  if (existingGoal) {
+    existingGoal.name = name;
+    existingGoal.target = target;
+  } else {
+    savingsGoals.push({ id: createGoalId(), name, target, contributions: [] });
+  }
+  saveSavingsGoals();
   renderGoalCard();
+  activeGoalId = null;
   goalModal.close();
 });
 
@@ -272,17 +288,37 @@ goalForm.addEventListener('submit', event => {
   goalError.textContent = '';
 }));
 
-document.querySelector('#close-goal-modal').addEventListener('click', () => goalModal.close());
 goalModal.addEventListener('cancel', event => {
-  if (!savingsGoal) event.preventDefault();
+  activeGoalId = null;
 });
 
-document.querySelector('#edit-goal').addEventListener('click', () => openGoalModal(true));
-document.querySelector('#add-savings').addEventListener('click', () => {
-  if (!savingsGoal) return;
+document.querySelector('#add-goal').addEventListener('click', () => openGoalModal());
+document.querySelector('#add-first-goal').addEventListener('click', () => openGoalModal());
+document.querySelector('#close-goal-modal').addEventListener('click', () => {
+  activeGoalId = null;
+  goalModal.close();
+});
+document.querySelector('#goal-list').addEventListener('click', event => {
+  const button = event.target.closest('[data-goal-action]');
+  if (!button) return;
+  const goalId = button.dataset.goalId;
+  const goal = savingsGoals.find(item => item.id === goalId);
+  if (!goal) return;
+  if (button.dataset.goalAction === 'edit') {
+    openGoalModal(goalId);
+    return;
+  }
+  if (button.dataset.goalAction === 'delete') {
+    savingsGoals = savingsGoals.filter(item => item.id !== goalId);
+    saveSavingsGoals();
+    renderGoalCard();
+    return;
+  }
+  activeGoalId = goalId;
   savingsForm.reset();
   savingsAmountInput.setCustomValidity('');
   savingsError.textContent = '';
+  document.querySelector('#savings-modal h2').textContent = `Add to ${goal.name}`;
   savingsModal.showModal();
   savingsAmountInput.focus();
 });
@@ -298,10 +334,13 @@ savingsForm.addEventListener('submit', event => {
     return;
   }
 
-  savingsGoal.contributions.push({ amount, dateISO: localDateISO() });
-  saveSavingsGoal();
+  const goal = savingsGoals.find(item => item.id === activeGoalId);
+  if (!goal) return;
+  goal.contributions.push({ amount, dateISO: localDateISO() });
+  saveSavingsGoals();
   renderGoalCard();
   savingsForm.reset();
+  activeGoalId = null;
   savingsModal.close();
 });
 
@@ -310,7 +349,11 @@ savingsAmountInput.addEventListener('input', () => {
   savingsError.textContent = '';
 });
 
-document.querySelector('#close-savings-modal').addEventListener('click', () => savingsModal.close());
+document.querySelector('#close-savings-modal').addEventListener('click', () => {
+  activeGoalId = null;
+  savingsModal.close();
+});
+savingsModal.addEventListener('cancel', () => { activeGoalId = null; });
 
 function renderTransactions() {
   const query = searchQuery.trim().toLowerCase();
@@ -368,28 +411,33 @@ function updateSpendingPanel() {
   const monthlyExpenses = transactions.filter(item => item.type === 'expense'
     && transactionMonth(item) === selectedSpendingMonth);
   const expense = monthlyExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
-  const essentialsCategories = ['Essentials', 'Housing', 'Transport', 'Health'];
-  const lifestyleCategories = ['Food & drink', 'Shopping', 'Entertainment'];
-  const essentials = monthlyExpenses.filter(item => essentialsCategories.includes(item.category))
-    .reduce((sum, item) => sum + Number(item.amount), 0);
-  const lifestyle = monthlyExpenses.filter(item => lifestyleCategories.includes(item.category))
-    .reduce((sum, item) => sum + Number(item.amount), 0);
-  const other = expense - essentials - lifestyle;
-  const essentialsEnd = expense ? essentials / expense * 360 : 0;
-  const lifestyleEnd = expense ? (essentials + lifestyle) / expense * 360 : 0;
+  const categoryTotals = new Map();
+  monthlyExpenses.forEach(item => categoryTotals.set(item.category, (categoryTotals.get(item.category) || 0) + Number(item.amount)));
+  const categories = [...categoryTotals.entries()].sort((first, second) => second[1] - first[1]);
   const donut = document.querySelector('.donut-chart');
   donut.classList.toggle('is-empty', expense === 0);
-  donut.style.setProperty('--essentials-end', `${essentialsEnd}deg`);
-  donut.style.setProperty('--lifestyle-end', `${lifestyleEnd}deg`);
-  document.querySelector('#essentials-total').textContent = formatCompact(essentials);
-  document.querySelector('#lifestyle-total').textContent = formatCompact(lifestyle);
-  document.querySelector('#other-total').textContent = formatCompact(other);
+  const legend = document.querySelector('#chart-legend');
+  if (expense > 0) {
+    let accumulated = 0;
+    const segments = categories.map(([category, amount], index) => {
+      const start = accumulated;
+      accumulated += amount / expense * 360;
+      const end = index === categories.length - 1 ? 360 : accumulated;
+      return `${chartColors[index % chartColors.length]} ${start}deg ${end}deg`;
+    });
+    donut.style.background = `conic-gradient(${segments.join(', ')})`;
+    legend.innerHTML = categories.map(([category, amount], index) => `<div><span class="legend-dot" style="background:${chartColors[index % chartColors.length]}"></span><span>${escapeHTML(category)}</span><strong>${formatGoalAmount(amount)}</strong></div>`).join('');
+  } else {
+    donut.style.background = '';
+    legend.innerHTML = '<p class="chart-empty">No spending data yet</p>';
+  }
+  document.querySelector('#chart-total').textContent = formatGoalAmount(expense);
   const periodText = selectedSpendingMonth === currentMonth
     ? 'this month'
     : `in ${monthLabel(selectedSpendingMonth)}`;
   document.querySelector('#spending-tip-text').textContent = expense
     ? `${monthlyExpenses.length} expense transaction${monthlyExpenses.length === 1 ? '' : 's'} recorded ${periodText}.`
-    : `No expenses recorded ${periodText} yet.`;
+    : `No spending data yet ${periodText}.`;
 }
 
 function escapeHTML(value) {

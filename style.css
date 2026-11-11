@@ -1128,11 +1128,7 @@ body {
   width: 113px;
   height: 113px;
   border-radius: 50%;
-  background: conic-gradient(
-    var(--lavender) 0deg var(--essentials-end, 0deg),
-    var(--sage) var(--essentials-end, 0deg) var(--lifestyle-end, 0deg),
-    var(--peach) var(--lifestyle-end, 0deg) 360deg
-  );
+  background: #eeedea;
   display: grid;
   place-items: center;
   position: relative;
@@ -1184,6 +1180,13 @@ body {
   font-size: 8px;
 }
 
+.chart-empty {
+  margin: 0;
+  color: #9e9da5;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
 .chart-legend strong {
   font-size: 8px;
   color: #575660;
@@ -1195,18 +1198,6 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-}
-
-.legend-lavender {
-  background: var(--lavender);
-}
-
-.legend-sage {
-  background: var(--sage);
-}
-
-.legend-peach {
-  background: var(--peach);
 }
 
 .spending-tip {
@@ -1250,6 +1241,52 @@ body {
   position: relative;
   overflow: hidden;
   box-shadow: 0 6px 17px #7566af28;
+}
+
+.goal-list {
+  position: relative;
+  max-height: 250px;
+  overflow-y: auto;
+  scrollbar-color: #ffffff70 transparent;
+  scrollbar-width: thin;
+}
+
+.goal-empty {
+  position: relative;
+  margin: 12px 0 2px;
+  color: #f0edf8;
+  font-size: 12px;
+}
+
+.goal-empty .goal-action {
+  display: block;
+  margin-top: 9px;
+  background: #ffffff22;
+}
+
+.goal-entry {
+  position: relative;
+  padding: 9px 0 11px;
+}
+
+.goal-entry + .goal-entry {
+  border-top: 1px solid #ffffff30;
+}
+
+.goal-entry h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-entry-actions {
+  display: flex;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.goal-delete {
+  color: #ffe5e2;
 }
 
 .goal-orb {
