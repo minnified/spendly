@@ -1,4 +1,5 @@
 const transactionStorageKey = 'spendly-transactions';
+const savingsGoalStorageKey = 'spendly-savings-goal';
 
 function createTransactionId() {
   return window.crypto?.randomUUID?.() || `transaction-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -6,6 +7,53 @@ function createTransactionId() {
 
 function saveTransactions(items) {
   localStorage.setItem(transactionStorageKey, JSON.stringify(items));
+}
+
+function localDateISO(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isValidDateISO(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+function transactionDateISO(item) {
+  if (isValidDateISO(item.dateISO)) return item.dateISO;
+
+  const dateText = String(item.date || '');
+  const date = new Date();
+  if (/^yesterday/i.test(dateText)) date.setDate(date.getDate() - 1);
+  else if (!/^(today|just now)/i.test(dateText)) {
+    const parsedDate = new Date(dateText);
+    if (!Number.isNaN(parsedDate.getTime())) return localDateISO(parsedDate);
+  }
+  return localDateISO(date);
+}
+
+function transactionMonth(item) {
+  return item.dateISO.slice(0, 7);
+}
+
+function monthLabel(monthKey) {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function formatTransactionDate(dateISO) {
+  const [year, month, day] = dateISO.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (dateISO === localDateISO(today)) return 'Today';
+  if (dateISO === localDateISO(yesterday)) return 'Yesterday';
+  return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
 function loadTransactions() {
@@ -24,11 +72,12 @@ function loadTransactions() {
       .filter(item => item && typeof item.title === 'string' && typeof item.category === 'string'
         && ['income', 'expense'].includes(item.type) && Number.isFinite(Number(item.amount)))
       .map(item => {
-        if (item.id !== undefined && item.id !== null && String(item.id)) {
-          return { ...item, id: String(item.id), amount: Number(item.amount) };
-        }
-        needsSave = true;
-        return { ...item, id: createTransactionId(), amount: Number(item.amount) };
+        const id = item.id !== undefined && item.id !== null && String(item.id)
+          ? String(item.id)
+          : createTransactionId();
+        const dateISO = transactionDateISO(item);
+        if (!item.id || item.dateISO !== dateISO) needsSave = true;
+        return { ...item, id, dateISO, amount: Number(item.amount) };
       });
 
     if (needsSave) saveTransactions(loadedTransactions);
@@ -38,16 +87,60 @@ function loadTransactions() {
   }
 }
 
+function loadSavingsGoal() {
+  const savedGoal = localStorage.getItem(savingsGoalStorageKey);
+  if (savedGoal === null) return null;
+
+  try {
+    const parsedGoal = JSON.parse(savedGoal);
+    const target = Number(parsedGoal.target);
+    if (!parsedGoal || typeof parsedGoal.name !== 'string' || !parsedGoal.name.trim()
+      || !Number.isFinite(target) || target <= 0) return null;
+
+    const contributions = Array.isArray(parsedGoal.contributions)
+      ? parsedGoal.contributions.filter(item => item && Number.isFinite(Number(item.amount)) && Number(item.amount) > 0)
+        .map(item => ({ amount: Number(item.amount) }))
+      : [];
+    return { name: parsedGoal.name.trim(), target, contributions };
+  } catch {
+    return null;
+  }
+}
+
+function saveSavingsGoal() {
+  localStorage.setItem(savingsGoalStorageKey, JSON.stringify(savingsGoal));
+}
+
+function savingsContributionTotal() {
+  const total = (savingsGoal?.contributions || []).reduce((sum, item) => sum + Number(item.amount), 0);
+  return Number(total.toFixed(2));
+}
+
+function formatGoalAmount(amount) {
+  return `₹${Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
 let transactions = loadTransactions();
+let savingsGoal = loadSavingsGoal();
 let showAll = false;
 let transactionFilter = 'all';
 let searchQuery = '';
+let selectedSpendingMonth = localDateISO().slice(0, 7);
 const formatCurrency = amount => '₹' + Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatCompact = amount => '₹' + Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 const list = document.querySelector('#transaction-list');
 const nameModal = document.querySelector('#name-modal');
 const nameInput = document.querySelector('#user-name-input');
 const nameError = document.querySelector('#name-error');
+const goalModal = document.querySelector('#goal-modal');
+const goalForm = document.querySelector('#goal-form');
+const goalNameInput = document.querySelector('#goal-name-input');
+const goalTargetInput = document.querySelector('#goal-target-input');
+const goalError = document.querySelector('#goal-error');
+const savingsModal = document.querySelector('#savings-modal');
+const savingsForm = document.querySelector('#savings-form');
+const savingsAmountInput = document.querySelector('#savings-amount-input');
+const savingsError = document.querySelector('#savings-error');
 let activeName = (localStorage.getItem('spendly-user-name') || '').trim();
 
 function updateGreeting() {
@@ -70,8 +163,45 @@ function displayName(name) {
   document.querySelector('#top-initial').textContent = initials[0] || 'A';
 }
 
+function renderGoalCard() {
+  const target = savingsGoal?.target || 0;
+  const saved = savingsContributionTotal();
+  const remaining = Math.max(0, target - saved);
+  const percentage = target ? Math.min(100, Math.round(saved / target * 100)) : 0;
+
+  document.querySelector('#goal-name').textContent = savingsGoal?.name || 'Create your first goal';
+  document.querySelector('#goal-saved-amount').textContent = formatGoalAmount(saved);
+  document.querySelector('#goal-target-amount').textContent = formatGoalAmount(target);
+  document.querySelector('#goal-percent').textContent = `${percentage}% completed`;
+  document.querySelector('#goal-remaining').textContent = savingsGoal
+    ? `${formatGoalAmount(remaining)} to go`
+    : 'Set a target to begin';
+  document.querySelector('#goal-progress-fill').style.width = `${percentage}%`;
+  const progress = document.querySelector('#goal-progress');
+  progress.setAttribute('aria-valuenow', String(percentage));
+  document.querySelector('#add-savings').disabled = !savingsGoal;
+}
+
+function openGoalModal(editing = false) {
+  document.querySelector('#goal-modal-title').textContent = editing ? 'Edit your savings goal' : 'Set your savings goal';
+  document.querySelector('#goal-modal-kicker').textContent = editing ? 'UPDATE YOUR GOAL' : 'SAVINGS GOAL';
+  goalForm.querySelector('button[type="submit"]').innerHTML = editing
+    ? 'Save goal <span>→</span>'
+    : 'Create goal <span>→</span>';
+  document.querySelector('#close-goal-modal').hidden = !editing;
+  goalNameInput.value = savingsGoal?.name || '';
+  goalTargetInput.value = savingsGoal?.target || '';
+  goalError.textContent = '';
+  goalNameInput.setCustomValidity('');
+  goalTargetInput.setCustomValidity('');
+  goalModal.showModal();
+}
+
+renderGoalCard();
+
 if (activeName) {
   displayName(activeName);
+  if (!savingsGoal) openGoalModal();
 } else {
   nameModal.showModal();
 }
@@ -90,6 +220,7 @@ document.querySelector('#name-form').addEventListener('submit', event => {
   nameError.textContent = '';
   displayName(name);
   nameModal.close();
+  if (!savingsGoal) openGoalModal();
 });
 
 nameInput.addEventListener('input', () => {
@@ -112,6 +243,74 @@ document.querySelector('#close-name-modal').addEventListener('click', () => name
 nameModal.addEventListener('cancel', event => {
   if (!activeName) event.preventDefault();
 });
+
+goalForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const name = goalNameInput.value.trim();
+  const target = Number(goalTargetInput.value);
+  if (!name || !Number.isFinite(target) || target <= 0) {
+    goalError.textContent = !name ? 'Enter a name for your goal.' : 'Enter a target amount greater than ₹0.';
+    goalNameInput.setCustomValidity(name ? '' : 'Enter a name for your goal.');
+    goalTargetInput.setCustomValidity(Number.isFinite(target) && target > 0 ? '' : 'Enter a target amount greater than ₹0.');
+    (!name ? goalNameInput : goalTargetInput).reportValidity();
+    (!name ? goalNameInput : goalTargetInput).focus();
+    return;
+  }
+
+  savingsGoal = {
+    name,
+    target,
+    contributions: savingsGoal?.contributions || []
+  };
+  saveSavingsGoal();
+  renderGoalCard();
+  goalModal.close();
+});
+
+[goalNameInput, goalTargetInput].forEach(input => input.addEventListener('input', () => {
+  input.setCustomValidity('');
+  goalError.textContent = '';
+}));
+
+document.querySelector('#close-goal-modal').addEventListener('click', () => goalModal.close());
+goalModal.addEventListener('cancel', event => {
+  if (!savingsGoal) event.preventDefault();
+});
+
+document.querySelector('#edit-goal').addEventListener('click', () => openGoalModal(true));
+document.querySelector('#add-savings').addEventListener('click', () => {
+  if (!savingsGoal) return;
+  savingsForm.reset();
+  savingsAmountInput.setCustomValidity('');
+  savingsError.textContent = '';
+  savingsModal.showModal();
+  savingsAmountInput.focus();
+});
+
+savingsForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const amount = Number(savingsAmountInput.value);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    savingsError.textContent = 'Enter an amount greater than ₹0.';
+    savingsAmountInput.setCustomValidity('Enter an amount greater than ₹0.');
+    savingsAmountInput.reportValidity();
+    savingsAmountInput.focus();
+    return;
+  }
+
+  savingsGoal.contributions.push({ amount, dateISO: localDateISO() });
+  saveSavingsGoal();
+  renderGoalCard();
+  savingsForm.reset();
+  savingsModal.close();
+});
+
+savingsAmountInput.addEventListener('input', () => {
+  savingsAmountInput.setCustomValidity('');
+  savingsError.textContent = '';
+});
+
+document.querySelector('#close-savings-modal').addEventListener('click', () => savingsModal.close());
 
 function renderTransactions() {
   const query = searchQuery.trim().toLowerCase();
@@ -139,18 +338,41 @@ function renderTransactions() {
 
 function updateSummary() {
   const income = transactions.filter(item => item.type === 'income').reduce((sum, item) => sum + Number(item.amount), 0);
-  const expenses = transactions.filter(item => item.type === 'expense');
-  const expense = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
+  const expense = transactions.filter(item => item.type === 'expense').reduce((sum, item) => sum + Number(item.amount), 0);
   document.querySelector('#income-amount').innerHTML = `${formatCurrency(income).replace(/(\.\d{2})$/, '<span>$1</span>')}`;
   document.querySelector('#expense-amount').innerHTML = `${formatCurrency(expense).replace(/(\.\d{2})$/, '<span>$1</span>')}`;
   document.querySelector('#balance-amount').innerHTML = `${formatCurrency(income - expense).replace(/(\.\d{2})$/, '<span>$1</span>')}`;
-  document.querySelector('#chart-total').textContent = formatCompact(expense);
+  updateSpendingPanel();
+}
 
+function updateSpendingPanel() {
+  const currentMonth = localDateISO().slice(0, 7);
+  const availableMonths = new Set(transactions.map(transactionMonth));
+  if (availableMonths.size === 0) availableMonths.add(currentMonth);
+  const months = [...availableMonths].sort((first, second) => second.localeCompare(first));
+  if (!months.includes(selectedSpendingMonth)) selectedSpendingMonth = months[0];
+
+  const monthLabelText = selectedSpendingMonth === currentMonth ? 'This month' : monthLabel(selectedSpendingMonth);
+  document.querySelector('#selected-spending-month').textContent = monthLabelText;
+  document.querySelector('#chart-period-caption').textContent = selectedSpendingMonth === currentMonth
+    ? 'Spent this month'
+    : `Spent in ${monthLabel(selectedSpendingMonth)}`;
+
+  const monthMenu = document.querySelector('#spending-month-menu');
+  monthMenu.innerHTML = months.map(month => {
+    const isSelected = month === selectedSpendingMonth;
+    const label = month === currentMonth ? 'This month' : monthLabel(month);
+    return `<button class="period-option${isSelected ? ' is-selected' : ''}" type="button" role="menuitemradio" data-month="${month}" aria-checked="${isSelected}">${label}</button>`;
+  }).join('');
+
+  const monthlyExpenses = transactions.filter(item => item.type === 'expense'
+    && transactionMonth(item) === selectedSpendingMonth);
+  const expense = monthlyExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
   const essentialsCategories = ['Essentials', 'Housing', 'Transport', 'Health'];
   const lifestyleCategories = ['Food & drink', 'Shopping', 'Entertainment'];
-  const essentials = expenses.filter(item => essentialsCategories.includes(item.category))
+  const essentials = monthlyExpenses.filter(item => essentialsCategories.includes(item.category))
     .reduce((sum, item) => sum + Number(item.amount), 0);
-  const lifestyle = expenses.filter(item => lifestyleCategories.includes(item.category))
+  const lifestyle = monthlyExpenses.filter(item => lifestyleCategories.includes(item.category))
     .reduce((sum, item) => sum + Number(item.amount), 0);
   const other = expense - essentials - lifestyle;
   const essentialsEnd = expense ? essentials / expense * 360 : 0;
@@ -162,6 +384,12 @@ function updateSummary() {
   document.querySelector('#essentials-total').textContent = formatCompact(essentials);
   document.querySelector('#lifestyle-total').textContent = formatCompact(lifestyle);
   document.querySelector('#other-total').textContent = formatCompact(other);
+  const periodText = selectedSpendingMonth === currentMonth
+    ? 'this month'
+    : `in ${monthLabel(selectedSpendingMonth)}`;
+  document.querySelector('#spending-tip-text').textContent = expense
+    ? `${monthlyExpenses.length} expense transaction${monthlyExpenses.length === 1 ? '' : 's'} recorded ${periodText}.`
+    : `No expenses recorded ${periodText} yet.`;
 }
 
 function escapeHTML(value) {
@@ -171,15 +399,20 @@ function escapeHTML(value) {
 renderTransactions();
 
 const modal = document.querySelector('#transaction-modal');
-document.querySelector('#open-modal').addEventListener('click', () => modal.showModal());
+const transactionDateInput = document.querySelector('#transaction-date');
+document.querySelector('#open-modal').addEventListener('click', () => {
+  transactionDateInput.value = localDateISO();
+  modal.showModal();
+});
 document.querySelector('#close-modal').addEventListener('click', () => modal.close());
 document.querySelector('#transaction-form').addEventListener('submit', event => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const type = form.get('type');
+  const dateISO = form.get('date');
   const icons = { 'Food & drink': '☕', Shopping: '▤', Transport: '⌁', Housing: '⌂', Health: '＋', Salary: '↗', Entertainment: '▷', Other: '✦' };
   const tints = { 'Food & drink': 'tint-peach', Shopping: 'tint-purple', Transport: 'tint-blue', Housing: 'tint-sage', Health: 'tint-pink', Salary: 'tint-sage', Entertainment: 'tint-yellow', Other: 'tint-purple' };
-  transactions.unshift({ id: createTransactionId(), title: form.get('title').trim(), category: form.get('category'), date: 'Just now', amount: Number(form.get('amount')), type, icon: icons[form.get('category')] || '✦', tint: tints[form.get('category')] || 'tint-purple' });
+  transactions.unshift({ id: createTransactionId(), title: form.get('title').trim(), category: form.get('category'), date: formatTransactionDate(dateISO), dateISO, amount: Number(form.get('amount')), type, icon: icons[form.get('category')] || '✦', tint: tints[form.get('category')] || 'tint-purple' });
   saveTransactions(transactions);
   showAll = false;
   renderTransactions();
@@ -195,6 +428,40 @@ list.addEventListener('click', event => {
   renderTransactions();
 });
 document.querySelector('#show-more').addEventListener('click', () => { showAll = !showAll; renderTransactions(); });
+const monthPicker = document.querySelector('#spending-month-picker');
+const monthToggle = document.querySelector('#spending-month-toggle');
+const monthMenu = document.querySelector('#spending-month-menu');
+
+monthToggle.addEventListener('click', () => {
+  const isOpen = !monthMenu.hidden;
+  monthMenu.hidden = isOpen;
+  monthToggle.setAttribute('aria-expanded', String(!isOpen));
+});
+
+monthMenu.addEventListener('click', event => {
+  const option = event.target.closest('[data-month]');
+  if (!option) return;
+  selectedSpendingMonth = option.dataset.month;
+  monthMenu.hidden = true;
+  monthToggle.setAttribute('aria-expanded', 'false');
+  updateSpendingPanel();
+});
+
+document.addEventListener('click', event => {
+  if (!monthMenu.hidden && !monthPicker.contains(event.target)) {
+    monthMenu.hidden = true;
+    monthToggle.setAttribute('aria-expanded', 'false');
+  }
+});
+
+monthPicker.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !monthMenu.hidden) {
+    monthMenu.hidden = true;
+    monthToggle.setAttribute('aria-expanded', 'false');
+    monthToggle.focus();
+  }
+});
+
 const filterControl = document.querySelector('#filter-control');
 const filterToggle = document.querySelector('#filter-toggle');
 const filterMenu = document.querySelector('#filter-menu');

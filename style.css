@@ -973,17 +973,148 @@ body {
 }
 
 .period-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 1px solid #efeeeb;
   border-radius: var(--radius-sm);
   background: var(--white);
   padding: 6px 8px;
   color: #85848d;
   font: 500 8px 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: border-color var(--transition), background-color var(--transition), color var(--transition);
 }
 
-.period-button span {
-  margin-left: 4px;
-  color: #aaa;
+.period-button:hover,
+.period-button[aria-expanded="true"] {
+  border-color: #d9d3ee;
+  background: #fbfaff;
+  color: var(--lavender-dark);
+}
+
+.period-arrow {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--transition);
+}
+
+.period-button[aria-expanded="true"] .period-arrow {
+  transform: rotate(180deg);
+}
+
+.period-picker {
+  position: relative;
+  z-index: 2;
+}
+
+.period-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 7px);
+  right: 0;
+  display: grid;
+  width: max-content;
+  min-width: 128px;
+  max-height: 220px;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid #eeedea;
+  border-radius: var(--radius-md);
+  background: var(--white);
+  box-shadow: 0 10px 26px rgba(42, 43, 48, .12);
+}
+
+.period-menu[hidden] {
+  display: none;
+}
+
+.period-option {
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #777680;
+  padding: 8px 9px;
+  text-align: left;
+  white-space: nowrap;
+  font: 500 9px 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background-color var(--transition), color var(--transition);
+}
+
+.period-option:hover,
+.period-option.is-selected {
+  background: var(--lavender-soft);
+  color: var(--lavender-dark);
+}
+
+.period-option.is-selected {
+  font-weight: 700;
+}
+
+.period-option:focus-visible {
+  outline: 2px solid var(--lavender);
+  outline-offset: 1px;
+}
+
+.goal-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  position: relative;
+  z-index: 1;
+}
+
+.goal-action {
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .12);
+  color: var(--white);
+  padding: 5px 7px;
+  font: 600 8px 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background-color var(--transition), border-color var(--transition);
+}
+
+.goal-action:hover {
+  border-color: rgba(255, 255, 255, .4);
+  background: rgba(255, 255, 255, .22);
+}
+
+.goal-action:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.goal-action:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, .8);
+  outline-offset: 2px;
+}
+
+.goal-card h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-modal .modal-close[hidden] {
+  display: none;
+}
+
+.savings-modal {
+  max-width: 390px;
+}
+
+.period-button:focus-visible {
+  outline: 2px solid var(--lavender);
+  outline-offset: 2px;
 }
 
 .chart-wrap {
@@ -1167,13 +1298,6 @@ body {
   stroke-linecap: round;
 }
 
-.goal-menu {
-  font-size: 18px;
-  letter-spacing: 1px;
-  line-height: 10px;
-  color: #e2dcf3;
-}
-
 .goal-label {
   color: #d6cfed;
   font-size: 7px;
@@ -1215,7 +1339,7 @@ body {
   position: absolute;
   left: 0;
   top: 0;
-  width: 64%;
+  width: 0;
   height: 100%;
   background: #e4ddf5;
   border-radius: 5px;
