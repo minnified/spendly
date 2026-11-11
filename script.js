@@ -1,11 +1,3 @@
-const initialTransactions = [
-  { id: 'sample-salary', title: 'Monthly salary', category: 'Income', date: 'Today, 9:14 AM', amount: 64500, type: 'income', icon: '↗', tint: 'tint-sage' },
-  { id: 'sample-grocery', title: 'Grocery shopping', category: 'Essentials', date: 'Today, 8:32 AM', amount: 2840, type: 'expense', icon: '▤', tint: 'tint-purple' },
-  { id: 'sample-coffee', title: 'Coffee & brunch', category: 'Food & drink', date: 'Yesterday', amount: 680, type: 'expense', icon: '☕', tint: 'tint-peach' },
-  { id: 'sample-uber', title: 'Uber ride', category: 'Transport', date: 'Yesterday', amount: 420, type: 'expense', icon: '⌁', tint: 'tint-blue' },
-  { id: 'sample-streaming', title: 'Streaming subscription', category: 'Entertainment', date: 'Nov 04, 2025', amount: 499, type: 'expense', icon: '▷', tint: 'tint-pink' },
-  { id: 'sample-dinner', title: 'Weekend dinner', category: 'Food & drink', date: 'Nov 03, 2025', amount: 1250, type: 'expense', icon: '✦', tint: 'tint-yellow' }
-];
 const transactionStorageKey = 'spendly-transactions';
 
 function createTransactionId() {
@@ -19,9 +11,8 @@ function saveTransactions(items) {
 function loadTransactions() {
   const savedTransactions = localStorage.getItem(transactionStorageKey);
   if (savedTransactions === null) {
-    const samples = initialTransactions.map(item => ({ ...item }));
-    saveTransactions(samples);
-    return samples;
+    saveTransactions([]);
+    return [];
   }
 
   try {
@@ -148,11 +139,29 @@ function renderTransactions() {
 
 function updateSummary() {
   const income = transactions.filter(item => item.type === 'income').reduce((sum, item) => sum + Number(item.amount), 0);
-  const expense = transactions.filter(item => item.type === 'expense').reduce((sum, item) => sum + Number(item.amount), 0);
+  const expenses = transactions.filter(item => item.type === 'expense');
+  const expense = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
   document.querySelector('#income-amount').innerHTML = `${formatCurrency(income).replace(/(\.\d{2})$/, '<span>$1</span>')}`;
   document.querySelector('#expense-amount').innerHTML = `${formatCurrency(expense).replace(/(\.\d{2})$/, '<span>$1</span>')}`;
   document.querySelector('#balance-amount').innerHTML = `${formatCurrency(income - expense).replace(/(\.\d{2})$/, '<span>$1</span>')}`;
   document.querySelector('#chart-total').textContent = formatCompact(expense);
+
+  const essentialsCategories = ['Essentials', 'Housing', 'Transport', 'Health'];
+  const lifestyleCategories = ['Food & drink', 'Shopping', 'Entertainment'];
+  const essentials = expenses.filter(item => essentialsCategories.includes(item.category))
+    .reduce((sum, item) => sum + Number(item.amount), 0);
+  const lifestyle = expenses.filter(item => lifestyleCategories.includes(item.category))
+    .reduce((sum, item) => sum + Number(item.amount), 0);
+  const other = expense - essentials - lifestyle;
+  const essentialsEnd = expense ? essentials / expense * 360 : 0;
+  const lifestyleEnd = expense ? (essentials + lifestyle) / expense * 360 : 0;
+  const donut = document.querySelector('.donut-chart');
+  donut.classList.toggle('is-empty', expense === 0);
+  donut.style.setProperty('--essentials-end', `${essentialsEnd}deg`);
+  donut.style.setProperty('--lifestyle-end', `${lifestyleEnd}deg`);
+  document.querySelector('#essentials-total').textContent = formatCompact(essentials);
+  document.querySelector('#lifestyle-total').textContent = formatCompact(lifestyle);
+  document.querySelector('#other-total').textContent = formatCompact(other);
 }
 
 function escapeHTML(value) {

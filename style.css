@@ -997,11 +997,19 @@ body {
   width: 113px;
   height: 113px;
   border-radius: 50%;
-  background: conic-gradient(var(--lavender) 0deg 188deg, var(--sage) 188deg 295deg, var(--peach) 295deg 360deg);
+  background: conic-gradient(
+    var(--lavender) 0deg var(--essentials-end, 0deg),
+    var(--sage) var(--essentials-end, 0deg) var(--lifestyle-end, 0deg),
+    var(--peach) var(--lifestyle-end, 0deg) 360deg
+  );
   display: grid;
   place-items: center;
   position: relative;
   flex: none;
+}
+
+.donut-chart.is-empty {
+  background: #eeedea;
 }
 
 .donut-chart:after {
@@ -1872,9 +1880,7 @@ body {
     font-size: 10px;
   }
 
-  /* .transaction-amount.expense{
-    color:#722F37
-  } */
+
 
   .transaction-delete {
     grid-column: 4;
