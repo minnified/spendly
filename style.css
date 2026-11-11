@@ -791,15 +791,16 @@ body {
   cursor: pointer;
 }
 
-.data-toolbar {
+.footer-tools {
   display: flex;
-  justify-content: flex-end;
-  gap: 7px;
-  padding: 9px 0 4px;
+  align-items: center;
+  gap: 9px;
 }
 
-.data-toolbar button,
-.data-toolbar .import-button {
+.footer-csv,
+.backup-menu summary,
+.backup-menu-panel button,
+.backup-menu-panel .import-button {
   border: 1px solid #eeedea;
   border-radius: 6px;
   padding: 5px 8px;
@@ -810,18 +811,58 @@ body {
   transition: background-color var(--transition), color var(--transition), border-color var(--transition);
 }
 
-.data-toolbar button:hover,
-.data-toolbar .import-button:hover {
+.footer-csv:hover,
+.backup-menu summary:hover,
+.backup-menu-panel button:hover,
+.backup-menu-panel .import-button:hover {
   background: #f8f7fb;
   border-color: #dcd7ed;
   color: #7266ac;
 }
 
+.backup-menu {
+  position: relative;
+}
+
+.backup-menu summary {
+  list-style: none;
+  user-select: none;
+}
+
+.backup-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.backup-menu summary::after {
+  content: '⌄';
+  margin-left: 5px;
+}
+
+.backup-menu-panel {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  justify-items: stretch;
+  gap: 6px;
+  min-width: 132px;
+  padding: 8px;
+  border: 1px solid #eeedea;
+  border-radius: 9px;
+  background: var(--white);
+  box-shadow: 0 8px 24px #302b401c;
+}
+
+.backup-menu-panel .import-button {
+  text-align: center;
+}
+
 .data-status {
-  align-self: center;
-  margin-left: 3px;
+  max-width: 200px;
   color: #898790;
   font-size: 8px;
+  overflow-wrap: anywhere;
 }
 
 .count-dot {
@@ -1477,9 +1518,28 @@ body {
 .page-footer {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   margin-top: 18px;
   color: #b2b1b7;
   font-size: 8px;
+}
+
+.footer-tools {
+  position: relative;
+}
+
+.footer-csv {
+  color: #888790;
+}
+
+.backup-menu summary,
+.backup-menu-panel button,
+.backup-menu-panel .import-button {
+  background: var(--white);
+  color: #888790;
+  text-align: center;
+  cursor: pointer;
 }
 
 .footer-dot {
@@ -2183,6 +2243,16 @@ body {
 
   .page-footer {
     font-size: 7px;
+    flex-wrap: wrap;
+  }
+
+  .footer-tools {
+    gap: 5px;
+    margin-left: auto;
+  }
+
+  .footer-meta {
+    display: none;
   }
 
   .mobile-nav {

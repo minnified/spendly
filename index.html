@@ -70,7 +70,6 @@
                   <button type="button" class="filter-option" data-filter="expense" role="menuitemradio" aria-checked="false">Expenses</button>
                 </div>
               </div></div></div>
-            <div class="data-toolbar" aria-label="Transaction data actions"><button type="button" id="export-csv">Export CSV</button><button type="button" id="export-backup">Export Backup</button><label class="import-button" for="import-backup-file">Import Backup</label><input id="import-backup-file" type="file" accept="application/json,.json" hidden><span class="data-status" id="data-status" role="status" aria-live="polite"></span></div>
             <div class="transaction-list" id="transaction-list"></div>
             <div class="list-footer"><span>Showing <strong id="showing-count">0</strong> of <strong id="total-count">0</strong> transactions</span><button id="show-more" class="show-more">Show more <span>↓</span></button></div>
           </article>
@@ -79,7 +78,7 @@
             <article class="goal-card"><div class="goal-orb orb-one"></div><div class="goal-orb orb-two"></div><div class="goal-top"><span class="goal-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18m6-15H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H6"/></svg></span><button class="goal-action" id="add-goal" type="button">＋ Add goal</button></div><div class="goal-label">SAVINGS GOALS</div><p class="goal-empty" id="goal-empty" hidden>No savings goals yet. Start by creating your first goal. <button class="goal-action" id="add-first-goal" type="button">Add Your First Goal</button></p><div class="goal-list" id="goal-list"></div></article>
           </aside>
         </section>
-        <footer class="page-footer"><span>Made for mindful money maintainance</span><span>Spendly <span class="footer-dot">✳</span> 2026</span></footer>
+        <footer class="page-footer"><span class="footer-message">Made for mindful money maintainance</span><div class="footer-tools"><span class="footer-meta">Spendly <span class="footer-dot">✳</span> 2026</span><button type="button" class="footer-csv" id="export-csv">Export CSV</button><details class="backup-menu"><summary>Backup</summary><div class="backup-menu-panel"><button type="button" id="export-backup">Export Backup</button><label class="import-button" for="import-backup-file">Import Backup</label><input id="import-backup-file" type="file" accept="application/json,.json" hidden><span class="data-status" id="data-status" role="status" aria-live="polite"></span></div></details></div></footer>
       </div>
     </main>
   </div>

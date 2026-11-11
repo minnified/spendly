@@ -594,7 +594,6 @@ document.querySelector('#transaction-sort').addEventListener('change', event => 
 document.querySelector('#export-csv').addEventListener('click', () => {
   const rows = [['Date', 'Title', 'Amount', 'Type', 'Category'], ...sortTransactionItems(transactions).map(item => [item.dateISO, item.title, item.amount, item.type, item.category])];
   downloadFile(`spendly-transactions-${localDateISO()}.csv`, `\uFEFF${rows.map(row => row.map(csvCell).join(',')).join('\r\n')}`, 'text/csv;charset=utf-8');
-  document.querySelector('#data-status').textContent = 'CSV exported.';
 });
 document.querySelector('#export-backup').addEventListener('click', () => {
   const backup = {
